@@ -1,1 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Inbox Admin</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+</head>
 
+<body>
+<h2>Request User</h2>
+<div id="list"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBsjCVA17gsS4b8xKfbh42n_s7Y8m6aC_s",
+  databaseURL: "https://chat-encrypt-a922a-default-rtdb.asia-southeast1.firebasedatabase.app"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const list = document.getElementById("list");
+
+db.ref("requests").on("child_added", snap=>{
+  const data = snap.val();
+  const id = snap.key;
+
+  const div = document.createElement("div");
+  div.innerHTML = `
+    <p>${data.email} (${data.username})</p>
+    <button onclick="approve('${id}')">Izinkan</button>
+    <button onclick="reject('${id}')">Tolak</button>
+    <hr>
+  `;
+  list.appendChild(div);
+});
+
+function approve(id){
+  db.ref("requests/"+id).update({status:"approved"});
+  alert("Diizinkan");
+}
+
+function reject(id){
+  db.ref("requests/"+id).remove();
+  alert("Ditolak");
+}
+</script>
+
+</body>
+</html>
