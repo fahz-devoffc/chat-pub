@@ -1,1 +1,1036 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>LisaEncrypt Chat™ - Secure Messaging</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- CryptoJS untuk enkripsi -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
+        body {
+            font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
+            background: #0a0a0f;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Main Layout */
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Sidebar - Hamburger Style */
+        .sidebar {
+            position: fixed;
+            left: -280px;
+            top: 0;
+            width: 280px;
+            height: 100vh;
+            background: linear-gradient(180deg, #0d0d15 0%, #0a0a0f 100%);
+            border-right: 1px solid rgba(255, 107, 157, 0.2);
+            z-index: 200;
+            transition: left 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            backdrop-filter: blur(20px);
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .sidebar.open {
+            left: 0;
+        }
+
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid rgba(255, 107, 157, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-header i {
+            font-size: 28px;
+            color: #ff6b9d;
+        }
+
+        .sidebar-header h3 {
+            background: linear-gradient(135deg, #ff6b9d, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .sidebar-menu {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .menu-item {
+            background: transparent;
+            border: none;
+            padding: 14px 16px;
+            border-radius: 12px;
+            color: #aaa;
+            font-size: 15px;
+            font-weight: 500;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+        }
+
+        .menu-item i {
+            width: 24px;
+            font-size: 18px;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 107, 157, 0.1);
+            color: #ff6b9d;
+        }
+
+        .menu-item.active {
+            background: linear-gradient(135deg, rgba(255, 107, 157, 0.2), rgba(192, 132, 252, 0.2));
+            color: #ff6b9d;
+            border-left: 3px solid #ff6b9d;
+        }
+
+        .sidebar-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .user-info-sidebar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b9d, #c084fc);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .user-details h4 {
+            color: white;
+            font-size: 14px;
+        }
+
+        .user-details p {
+            color: #888;
+            font-size: 11px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 0;
+            transition: margin-left 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            background: rgba(10, 10, 15, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            border-bottom: 1px solid rgba(255, 107, 157, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .hamburger-btn {
+            background: transparent;
+            border: none;
+            font-size: 24px;
+            color: #ff6b9d;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .hamburger-btn:hover {
+            background: rgba(255, 107, 157, 0.1);
+        }
+
+        .chat-title {
+            flex: 1;
+        }
+
+        .chat-title h2 {
+            color: white;
+            font-size: 18px;
+        }
+
+        .chat-title p {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .encrypt-badge {
+            background: rgba(192, 132, 252, 0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            color: #c084fc;
+        }
+
+        /* Chat Container */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Contact List (Utama Tab) */
+        .contacts-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .contact-item {
+            background: rgba(20, 20, 35, 0.6);
+            border-radius: 16px;
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .contact-item:hover {
+            background: rgba(30, 30, 45, 0.8);
+            border-color: rgba(255, 107, 157, 0.3);
+            transform: translateX(4px);
+        }
+
+        .contact-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b9d, #c084fc);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 18px;
+        }
+
+        .contact-info {
+            flex: 1;
+        }
+
+        .contact-name {
+            color: white;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .contact-last-msg {
+            color: #888;
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+
+        .contact-time {
+            font-size: 10px;
+            color: #666;
+        }
+
+        /* Chat Window */
+        .chat-window {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: rgba(5, 5, 10, 0.5);
+        }
+
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 18px;
+            position: relative;
+            animation: fadeInUp 0.2s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.sent {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #ff6b9d, #c084fc);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.received {
+            align-self: flex-start;
+            background: rgba(30, 30, 45, 0.9);
+            color: #ddd;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-text {
+            font-size: 14px;
+            word-wrap: break-word;
+        }
+
+        .message-time {
+            font-size: 9px;
+            opacity: 0.6;
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .encrypted-badge {
+            font-size: 8px;
+            margin-left: 6px;
+            opacity: 0.7;
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 16px 20px;
+            background: rgba(10, 10, 20, 0.95);
+            border-top: 1px solid rgba(255, 107, 157, 0.2);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 12px 18px;
+            background: rgba(20, 20, 35, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            color: white;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .input-area input:focus {
+            outline: none;
+            border-color: #ff6b9d;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #ff6b9d, #c084fc);
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* Search Panel */
+        .search-panel {
+            padding: 20px;
+        }
+
+        .search-box {
+            background: rgba(20, 20, 35, 0.8);
+            border: 1px solid rgba(255, 107, 157, 0.3);
+            border-radius: 30px;
+            padding: 12px 20px;
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 14px;
+        }
+
+        .search-box input:focus {
+            outline: none;
+        }
+
+        .search-results {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .search-result-item {
+            background: rgba(20, 20, 35, 0.6);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-btn {
+            background: linear-gradient(135deg, #ff6b9d, #c084fc);
+            border: none;
+            padding: 6px 16px;
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        /* Profile Panel */
+        .profile-panel {
+            padding: 24px;
+            text-align: center;
+        }
+
+        .profile-avatar-large {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b9d, #c084fc);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            font-weight: bold;
+            color: white;
+            margin: 0 auto 20px;
+        }
+
+        .profile-field {
+            background: rgba(20, 20, 35, 0.6);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            text-align: left;
+        }
+
+        .profile-field label {
+            color: #888;
+            font-size: 11px;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .profile-field input, .profile-field textarea {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .profile-field textarea {
+            resize: none;
+            height: 60px;
+        }
+
+        .save-profile-btn {
+            background: linear-gradient(135deg, #ff6b9d, #c084fc);
+            border: none;
+            padding: 12px;
+            border-radius: 30px;
+            color: white;
+            width: 100%;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 150;
+            display: none;
+        }
+
+        .overlay.show {
+            display: block;
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a1a2e;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ff6b9d;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay"></div>
+    
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-shield-halts"></i>
+                <h3>LisaEncrypt</h3>
+            </div>
+            <div class="sidebar-menu">
+                <button class="menu-item active" data-tab="utama">
+                    <i class="fas fa-comments"></i> Utama
+                </button>
+                <button class="menu-item" data-tab="chat-encrypt">
+                    <i class="fas fa-lock"></i> Chat Encrypt
+                </button>
+                <button class="menu-item" data-tab="search">
+                    <i class="fas fa-search"></i> Search
+                </button>
+                <button class="menu-item" data-tab="profile">
+                    <i class="fas fa-user"></i> Profile
+                </button>
+            </div>
+            <div class="sidebar-footer">
+                <div class="user-info-sidebar" id="sidebarUserInfo">
+                    <div class="user-avatar" id="sidebarAvatar">L</div>
+                    <div class="user-details">
+                        <h4 id="sidebarUsername">Loading...</h4>
+                        <p id="sidebarEmail">user@example.com</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="top-bar">
+                <button class="hamburger-btn" id="hamburgerBtn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="chat-title" id="chatTitle">
+                    <h2>LisaEncrypt Chat</h2>
+                    <p>Pilih kontak untuk mulai chatting</p>
+                </div>
+                <div class="encrypt-badge" id="encryptBadge" style="display: none;">
+                    <i class="fas fa-lock"></i> Encrypted Mode
+                </div>
+            </div>
+
+            <div class="chat-container">
+                <!-- Tab Utama (Contact List + Chat) -->
+                <div id="utamaTab" class="contacts-panel">
+                    <div id="contactsList"></div>
+                </div>
+
+                <!-- Tab Chat Encrypt (pilih kontak dulu) -->
+                <div id="chatEncryptTab" class="contacts-panel hidden">
+                    <div class="search-box" style="margin-bottom: 16px;">
+                        <i class="fas fa-search" style="color: #ff6b9d;"></i>
+                        <input type="text" id="encryptContactSearch" placeholder="Cari kontak untuk chat encrypt...">
+                    </div>
+                    <div id="encryptContactsList"></div>
+                </div>
+
+                <!-- Tab Search -->
+                <div id="searchTab" class="search-panel hidden">
+                    <div class="search-box">
+                        <i class="fas fa-search" style="color: #ff6b9d;"></i>
+                        <input type="text" id="searchInput" placeholder="Cari user berdasarkan username...">
+                    </div>
+                    <div id="searchResults" class="search-results"></div>
+                </div>
+
+                <!-- Tab Profile -->
+                <div id="profileTab" class="profile-panel hidden">
+                    <div class="profile-avatar-large" id="profileAvatar">L</div>
+                    <div class="profile-field">
+                        <label>Username</label>
+                        <input type="text" id="profileUsername" readonly disabled>
+                    </div>
+                    <div class="profile-field">
+                        <label>Email</label>
+                        <input type="email" id="profileEmail" readonly disabled>
+                    </div>
+                    <div class="profile-field">
+                        <label>Bio</label>
+                        <textarea id="profileBio" placeholder="Tulis bio kamu..."></textarea>
+                    </div>
+                    <div class="profile-field">
+                        <label>Display Name</label>
+                        <input type="text" id="profileDisplayName" placeholder="Nama tampilan">
+                    </div>
+                    <button class="save-profile-btn" id="saveProfileBtn">
+                        <i class="fas fa-save"></i> Simpan Profile
+                    </button>
+                </div>
+
+                <!-- Chat Window (muncul saat kontak dipilih) -->
+                <div id="chatWindow" class="chat-window hidden">
+                    <div class="messages-area" id="messagesArea"></div>
+                    <div class="input-area">
+                        <input type="text" id="messageInput" placeholder="Ketik pesan...">
+                        <button class="send-btn" id="sendBtn">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBsjCVA17gsS4b8xKfbh42n_s7Y8m6aC_s",
+            authDomain: "chat-encrypt-a922a.firebaseapp.com",
+            databaseURL: "https://chat-encrypt-a922a-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "chat-encrypt-a922a",
+            storageBucket: "chat-encrypt-a922a.firebasestorage.app",
+            messagingSenderId: "311419431284",
+            appId: "1:311419431284:web:ad4edac6194bb2f4522421"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        let currentUser = null;
+        let currentUserData = null;
+        let currentChatWith = null;
+        let isEncryptMode = false;
+        let encryptionKey = "LisaSecretKey2024"; // Ganti dengan key acak tiap user nanti
+
+        // Cek login
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = user;
+            
+            // Ambil data user dari database
+            const userSnap = await database.ref('users/' + user.uid).once('value');
+            if (!userSnap.exists()) {
+                // Belum approved
+                await auth.signOut();
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            currentUserData = userSnap.val();
+            
+            // Cek banned
+            if (currentUserData.banned === true) {
+                await auth.signOut();
+                alert('Akun Anda telah diblokir oleh admin');
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // Update UI profile
+            updateProfileUI();
+            loadContacts();
+            
+            // Set encryption key unik berdasarkan user ID
+            encryptionKey = CryptoJS.SHA256(currentUser.uid + "LisaSalt").toString().substring(0, 32);
+        });
+
+        function updateProfileUI() {
+            const firstChar = (currentUserData.displayName || currentUserData.username || "U").charAt(0).toUpperCase();
+            document.getElementById('sidebarAvatar').textContent = firstChar;
+            document.getElementById('sidebarUsername').textContent = currentUserData.displayName || currentUserData.username;
+            document.getElementById('sidebarEmail').textContent = currentUser.email;
+            
+            document.getElementById('profileAvatar').textContent = firstChar;
+            document.getElementById('profileUsername').value = currentUserData.username || '';
+            document.getElementById('profileEmail').value = currentUser.email;
+            document.getElementById('profileBio').value = currentUserData.bio || '';
+            document.getElementById('profileDisplayName').value = currentUserData.displayName || '';
+        }
+
+        // Load semua user (kontak)
+        async function loadContacts() {
+            const snapshot = await database.ref('users').once('value');
+            const contacts = [];
+            snapshot.forEach((child) => {
+                const data = child.val();
+                if (child.key !== currentUser.uid && data.banned !== true) {
+                    contacts.push({
+                        uid: child.key,
+                        username: data.username,
+                        displayName: data.displayName || data.username,
+                        bio: data.bio || '',
+                        photoURL: data.photoURL || ''
+                    });
+                }
+            });
+            
+            renderContacts(contacts, 'contactsList', false);
+            renderContacts(contacts, 'encryptContactsList', true);
+        }
+
+        function renderContacts(contacts, containerId, isEncryptModeFlag) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            if (contacts.length === 0) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-user-friends"></i><p>Belum ada kontak</p></div>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            contacts.forEach(contact => {
+                const contactDiv = document.createElement('div');
+                contactDiv.className = 'contact-item';
+                const firstChar = (contact.displayName || contact.username).charAt(0).toUpperCase();
+                
+                contactDiv.innerHTML = `
+                    <div class="contact-avatar">${firstChar}</div>
+                    <div class="contact-info">
+                        <div class="contact-name">${escapeHtml(contact.displayName || contact.username)}</div>
+                        <div class="contact-last-msg">${escapeHtml(contact.bio || 'Hai! Aku user LisaChat')}</div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color: #666; font-size: 12px;"></i>
+                `;
+                
+                contactDiv.onclick = () => {
+                    if (isEncryptModeFlag) {
+                        startEncryptedChat(contact.uid, contact.displayName || contact.username);
+                    } else {
+                        startChat(contact.uid, contact.displayName || contact.username);
+                    }
+                };
+                
+                container.appendChild(contactDiv);
+            });
+        }
+
+        function startChat(uid, displayName) {
+            currentChatWith = uid;
+            isEncryptMode = false;
+            document.getElementById('encryptBadge').style.display = 'none';
+            document.getElementById('chatTitle').innerHTML = `
+                <h2>${escapeHtml(displayName)}</h2>
+                <p>Online • Pesan terenkripsi end-to-end</p>
+            `;
+            
+            document.getElementById('utamaTab').classList.add('hidden');
+            document.getElementById('chatEncryptTab').classList.add('hidden');
+            document.getElementById('searchTab').classList.add('hidden');
+            document.getElementById('profileTab').classList.add('hidden');
+            document.getElementById('chatWindow').classList.remove('hidden');
+            
+            loadMessages(uid, false);
+        }
+
+        function startEncryptedChat(uid, displayName) {
+            currentChatWith = uid;
+            isEncryptMode = true;
+            document.getElementById('encryptBadge').style.display = 'flex';
+            document.getElementById('chatTitle').innerHTML = `
+                <h2><i class="fas fa-lock"></i> ${escapeHtml(displayName)}</h2>
+                <p>Mode Encrypt • Anti-spy</p>
+            `;
+            
+            document.getElementById('utamaTab').classList.add('hidden');
+            document.getElementById('chatEncryptTab').classList.add('hidden');
+            document.getElementById('searchTab').classList.add('hidden');
+            document.getElementById('profileTab').classList.add('hidden');
+            document.getElementById('chatWindow').classList.remove('hidden');
+            
+            loadMessages(uid, true);
+        }
+
+        function loadMessages(otherUserId, encrypted) {
+            const messagesRef = database.ref('chats').orderByChild('roomId').equalTo(getRoomId(otherUserId));
+            
+            messagesRef.off();
+            messagesRef.on('child_added', (snapshot) => {
+                const msg = snapshot.val();
+                if (msg.encrypted !== encrypted) return;
+                
+                displayMessage(msg);
+            });
+            
+            // Load juga history
+            messagesRef.once('value', (snapshot) => {
+                const messagesArea = document.getElementById('messagesArea');
+                messagesArea.innerHTML = '';
+                snapshot.forEach((child) => {
+                    const msg = child.val();
+                    if (msg.encrypted === encrypted) {
+                        displayMessage(msg);
+                    }
+                });
+                scrollToBottom();
+            });
+        }
+
+        function getRoomId(otherUserId) {
+            const ids = [currentUser.uid, otherUserId].sort();
+            return ids[0] + '_' + ids[1];
+        }
+
+        function displayMessage(msg) {
+            const isSent = msg.senderId === currentUser.uid;
+            let messageText = msg.text;
+            
+            if (msg.encrypted && msg.text) {
+                try {
+                    const decrypted = CryptoJS.AES.decrypt(msg.text, encryptionKey).toString(CryptoJS.enc.Utf8);
+                    if (decrypted) messageText = decrypted;
+                } catch(e) {
+                    messageText = '[Encrypted]';
+                }
+            }
+            
+            const messagesArea = document.getElementById('messagesArea');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+            msgDiv.innerHTML = `
+                <div class="message-text">${escapeHtml(messageText)}</div>
+                <div class="message-time">${new Date(msg.timestamp).toLocaleTimeString()} ${msg.encrypted ? '<i class="fas fa-lock encrypted-badge"></i>' : ''}</div>
+            `;
+            messagesArea.appendChild(msgDiv);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const messagesArea = document.getElementById('messagesArea');
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            if (!text || !currentChatWith) return;
+            
+            let finalText = text;
+            if (isEncryptMode) {
+                finalText = CryptoJS.AES.encrypt(text, encryptionKey).toString();
+            }
+            
+            const roomId = getRoomId(currentChatWith);
+            await database.ref('chats').push({
+                roomId: roomId,
+                senderId: currentUser.uid,
+                receiverId: currentChatWith,
+                text: finalText,
+                encrypted: isEncryptMode,
+                timestamp: Date.now()
+            });
+            
+            input.value = '';
+        }
+
+        // Search user
+        document.getElementById('searchInput')?.addEventListener('input', async (e) => {
+            const query = e.target.value.toLowerCase();
+            if (query.length < 2) {
+                document.getElementById('searchResults').innerHTML = '';
+                return;
+            }
+            
+            const snapshot = await database.ref('users').once('value');
+            const results = [];
+            snapshot.forEach((child) => {
+                const data = child.val();
+                if (child.key !== currentUser.uid && data.banned !== true) {
+                    if (data.username.toLowerCase().includes(query) || 
+                        (data.displayName && data.displayName.toLowerCase().includes(query))) {
+                        results.push({
+                            uid: child.key,
+                            username: data.username,
+                            displayName: data.displayName || data.username
+                        });
+                    }
+                }
+            });
+            
+            const resultsDiv = document.getElementById('searchResults');
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="empty-state"><p>Tidak ditemukan</p></div>';
+                return;
+            }
+            
+            resultsDiv.innerHTML = '';
+            results.forEach(user => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.innerHTML = `
+                    <div>
+                        <strong>${escapeHtml(user.displayName)}</strong><br>
+                        <small style="color:#888;">@${escapeHtml(user.username)}</small>
+                    </div>
+                    <button class="chat-btn" data-uid="${user.uid}" data-name="${escapeHtml(user.displayName)}">Chat</button>
+                `;
+                resultsDiv.appendChild(item);
+            });
+            
+            document.querySelectorAll('.chat-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const uid = btn.dataset.uid;
+                    const name = btn.dataset.name;
+                    startChat(uid, name);
+                    // Tutup sidebar dan pindah tab
+                    document.getElementById('sidebar').classList.remove('open');
+                    document.getElementById('overlay').classList.remove('show');
+                };
+            });
+        });
+
+        // Save profile
+        document.getElementById('saveProfileBtn')?.addEventListener('click', async () => {
+            const bio = document.getElementById('profileBio').value;
+            const displayName = document.getElementById('profileDisplayName').value;
+            
+            await database.ref('users/' + currentUser.uid).update({
+                bio: bio,
+                displayName: displayName
+            });
+            
+            currentUserData.bio = bio;
+            currentUserData.displayName = displayName;
+            updateProfileUI();
+            alert('Profile berhasil disimpan!');
+        });
+
+        // Send message on button click or Enter
+        document.getElementById('sendBtn')?.addEventListener('click', sendMessage);
+        document.getElementById('messageInput')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // Sidebar navigation
+        let currentTab = 'utama';
+        
+        document.querySelectorAll('.menu-item').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                const tab = btn.dataset.tab;
+                currentTab = tab;
+                
+                // Hide all tabs
+                document.getElementById('utamaTab').classList.add('hidden');
+                document.getElementById('chatEncryptTab').classList.add('hidden');
+                document.getElementById('searchTab').classList.add('hidden');
+                document.getElementById('profileTab').classList.add('hidden');
+                document.getElementById('chatWindow').classList.add('hidden');
+                
+                // Show selected tab
+                if (tab === 'utama') document.getElementById('utamaTab').classList.remove('hidden');
+                if (tab === 'chat-encrypt') document.getElementById('chatEncryptTab').classList.remove('hidden');
+                if (tab === 'search') document.getElementById('searchTab').classList.remove('hidden');
+                if (tab === 'profile') document.getElementById('profileTab').classList.remove('hidden');
+                
+                // Tutup sidebar
+                document.getElementById('sidebar').classList.remove('open');
+                document.getElementById('overlay').classList.remove('show');
+            });
+        });
+
+        // Hamburger menu
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+        
+        document.getElementById('hamburgerBtn').onclick = () => {
+            sidebar.classList.add('open');
+            overlay.classList.add('show');
+        };
+        
+        overlay.onclick = () => {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('show');
+        };
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        // Load contacts awal
+        loadContacts();
+    </script>
+</body>
+</html>
