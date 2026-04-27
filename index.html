@@ -2,6 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chat Encrypt</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -22,81 +23,59 @@ body {
 .sidebar {
   width:260px;
   background:#020617;
-  padding:20px;
+  padding:15px;
   display:flex;
   flex-direction:column;
+  transition:0.3s;
 }
 
-.logo {
-  font-size:18px;
-  font-weight:bold;
-  margin-bottom:20px;
+.sidebar.hide {
+  transform:translateX(-100%);
+  position:absolute;
+  z-index:10;
 }
 
-.menu {
-  margin-bottom:10px;
+/* TOP BAR */
+.topbar {
+  background:#020617;
   padding:10px;
-  border-radius:8px;
-  cursor:pointer;
-  transition:0.2s;
-}
-.menu:hover {
-  background:#1e293b;
+  display:flex;
+  align-items:center;
 }
 
-.logout {
-  margin-top:auto;
-  background:#ef4444;
-  text-align:center;
-  padding:10px;
-  border-radius:8px;
+.menuBtn {
+  font-size:20px;
   cursor:pointer;
+  margin-right:10px;
 }
 
-/* USER LIST */
-.userList {
-  margin-top:10px;
-  overflow:auto;
-}
+/* USER */
 .user {
   padding:10px;
-  background:#0f172a;
-  margin-top:5px;
   border-radius:8px;
   cursor:pointer;
 }
-.user:hover {
-  background:#1e293b;
-}
+.user:hover { background:#1e293b; }
 
-/* CHAT AREA */
+/* CHAT */
 .chat {
   flex:1;
   display:flex;
   flex-direction:column;
 }
 
-.header {
-  background:#020617;
-  padding:15px;
-  font-weight:bold;
-  border-bottom:1px solid #1e293b;
-}
-
 .messages {
   flex:1;
-  padding:20px;
+  padding:15px;
   overflow:auto;
-  scroll-behavior:smooth;
 }
 
-/* CHAT BUBBLE */
+/* BUBBLE */
 .msg {
-  margin:8px 0;
   padding:10px 14px;
   border-radius:14px;
-  max-width:60%;
-  word-wrap:break-word;
+  margin:5px 0;
+  max-width:70%;
 }
 
 .me {
@@ -114,53 +93,59 @@ body {
   display:flex;
   padding:10px;
   background:#020617;
-  border-top:1px solid #1e293b;
 }
 
-.inputBox input {
+input {
   flex:1;
-  padding:10px;
+  padding:12px;
   border:none;
-  border-radius:8px;
+  border-radius:10px;
   background:#0f172a;
   color:white;
 }
 
-.inputBox button {
-  margin-left:8px;
-  padding:10px 15px;
+button {
+  margin-left:5px;
+  padding:10px;
   border:none;
-  border-radius:8px;
+  border-radius:10px;
   background:#38bdf8;
-  cursor:pointer;
+}
+
+/* MOBILE */
+@media(max-width:768px){
+  .sidebar {
+    position:absolute;
+    height:100%;
+  }
 }
 </style>
 </head>
 
 <body>
 
-<!-- SIDEBAR -->
-<div class="sidebar">
-  <div class="logo">💬 Chat Encrypt</div>
+<div class="sidebar hide" id="sidebar">
+  <h3>Chat</h3>
 
-  <div class="menu" onclick="setMode('normal')">💬 Chat Biasa</div>
-  <div class="menu" onclick="setMode('encrypt')">🔐 Chat Encrypt</div>
-  <div class="menu" onclick="editProfile()">👤 Profile</div>
-  <div class="menu" onclick="searchUser()">🔍 Search</div>
+  <div onclick="setMode('normal')">💬 Chat</div>
+  <div onclick="setMode('encrypt')">🔐 Encrypt</div>
+  <div onclick="logout()">🚪 Logout</div>
 
-  <div class="userList" id="users"></div>
-
-  <div class="logout" onclick="logout()">Logout</div>
+  <hr>
+  <div id="users"></div>
 </div>
 
-<!-- CHAT -->
 <div class="chat">
-  <div class="header" id="header">Pilih user untuk chat</div>
+  <div class="topbar">
+    <div class="menuBtn" onclick="toggleSidebar()">☰</div>
+    <div id="header">Pilih user</div>
+  </div>
+
   <div class="messages" id="messages"></div>
 
   <div class="inputBox">
     <input id="msg" placeholder="Ketik pesan...">
-    <button onclick="send()">Kirim</button>
+    <button onclick="send()">➤</button>
   </div>
 </div>
 
@@ -180,118 +165,87 @@ let currentUser, currentChat, mode="normal";
 
 // AUTH
 auth.onAuthStateChanged(user=>{
-  if(!user){
-    location.href="login.html";
-  } else {
-    currentUser = user;
-    loadUsers();
-  }
+  if(!user) return location.href="login.html";
+  currentUser=user;
+  loadUsers();
 });
 
-// LOAD USERS
+// SIDEBAR
+function toggleSidebar(){
+  document.getElementById("sidebar").classList.toggle("hide");
+}
+
+// USERS
 function loadUsers(){
   db.ref("users").on("child_added", snap=>{
-    const user = snap.val();
-    const uid = snap.key;
+    const u=snap.val();
+    const uid=snap.key;
 
-    if(uid === currentUser.uid) return;
+    if(uid===currentUser.uid) return;
 
-    const div = document.createElement("div");
+    const div=document.createElement("div");
     div.className="user";
-    div.innerText=user.username;
+    div.innerText=u.username;
 
-    div.onclick=()=>openChat(uid,user.username);
+    div.onclick=()=>openChat(uid,u.username);
 
-    document.getElementById("users").appendChild(div);
+    users.appendChild(div);
   });
 }
 
-// MODE
-function setMode(m){
-  mode = m;
-  alert("Mode: " + (m==="encrypt"?"Chat Encrypt 🔐":"Chat Biasa"));
-}
-
-// CHAT ID
+// CHAT
 function getChatId(a,b){
   return mode+"_"+(a<b?a+"_"+b:b+"_"+a);
 }
 
-// OPEN CHAT
 function openChat(uid,name){
-  currentChat = getChatId(currentUser.uid, uid);
+  currentChat=getChatId(currentUser.uid,uid);
+  header.innerText=name;
 
-  document.getElementById("header").innerText =
-    name + (mode==="encrypt"?" 🔐":"");
-
-  document.getElementById("messages").innerHTML="";
-
+  messages.innerHTML="";
   db.ref("messages/"+currentChat).off();
 
   db.ref("messages/"+currentChat).on("child_added", snap=>{
-    const m = snap.val();
+    const m=snap.val();
 
-    const div = document.createElement("div");
+    const div=document.createElement("div");
     div.className="msg "+(m.sender===currentUser.uid?"me":"other");
-    div.innerText = m.text;
+    div.innerText=m.text;
 
-    document.getElementById("messages").appendChild(div);
+    messages.appendChild(div);
+    messages.scrollTop=messages.scrollHeight;
   });
 }
 
 // SEND
 function send(){
-  const text = document.getElementById("msg").value;
-  if(!text || !currentChat) return;
+  const text=msg.value;
+  if(!text||!currentChat) return;
 
   db.ref("messages/"+currentChat).push({
-    sender: currentUser.uid,
+    sender:currentUser.uid,
     text,
-    time: Date.now(),
-    mode
+    time:Date.now()
   });
 
   db.ref("logs").push({
-    text: currentUser.uid+" ("+mode+"): "+text
+    text:currentUser.uid+": "+text
   });
 
-  document.getElementById("msg").value="";
+  msg.value="";
 }
 
-// PROFILE
-function editProfile(){
-  const name = prompt("Username baru:");
-  const bio = prompt("Bio:");
-  const photo = prompt("Foto URL:");
-
-  db.ref("users/"+currentUser.uid).update({
-    username:name,
-    bio,
-    photo
-  });
-
-  alert("Profile updated!");
-}
-
-// SEARCH
-function searchUser(){
-  const key = prompt("Cari username:");
-
-  db.ref("users").once("value", snap=>{
-    snap.forEach(s=>{
-      if(s.val().username.includes(key)){
-        alert("Ditemukan: "+s.val().username);
-      }
-    });
-  });
+// MODE
+function setMode(m){
+  mode=m;
+  alert("Mode: "+m);
 }
 
 // LOGOUT
 function logout(){
-  auth.signOut().then(()=>{
-    localStorage.clear();
-    location.href="login.html";
-  });
+  auth.signOut();
+  localStorage.clear();
+  location.href="login.html";
 }
 </script>
 
