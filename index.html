@@ -1,1 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Chat Encrypt</title>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<style>
+body {
+  margin:0;
+  font-family:sans-serif;
+  background:#020617;
+  color:white;
+  display:flex;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width:260px;
+  background:#0f172a;
+  height:100vh;
+  padding:15px;
+  overflow:auto;
+}
+
+.tab {
+  padding:10px;
+  cursor:pointer;
+  border-radius:8px;
+}
+.tab:hover {
+  background:#1e293b;
+}
+
+/* CONTENT */
+.content {
+  flex:1;
+  display:flex;
+  flex-direction:column;
+}
+
+.header {
+  padding:10px;
+  background:#0f172a;
+}
+
+.messages {
+  flex:1;
+  padding:20px;
+  overflow:auto;
+}
+
+.msg {
+  margin:5px 0;
+  padding:10px;
+  border-radius:10px;
+  max-width:60%;
+}
+
+.me {
+  background:#38bdf8;
+  color:black;
+  margin-left:auto;
+}
+
+.other {
+  background:#1e293b;
+}
+
+.inputBox {
+  display:flex;
+  padding:10px;
+  background:#0f172a;
+}
+
+input {
+  flex:1;
+  padding:10px;
+  border:none;
+  border-radius:6px;
+}
+
+button {
+  margin-left:5px;
+  padding:10px;
+  border:none;
+  background:#38bdf8;
+  cursor:pointer;
+  border-radius:6px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+  <h3>Menu</h3>
+  <div class="tab" onclick="showTab('utama')">Utama</div>
+  <div class="tab" onclick="showTab('profile')">Profile</div>
+  <div class="tab" onclick="showTab('search')">Search</div>
+  <div class="tab" onclick="showTab('encrypt')">Chat Encrypt 🔐</div>
+
+  <hr>
+  <div id="userList"></div>
+</div>
+
+<div class="content">
+  <div class="header" id="header">Chat</div>
+  <div class="messages" id="messages"></div>
+
+  <div class="inputBox">
+    <input id="msg">
+    <button onclick="send()">Kirim</button>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBsjCVA17gsS4b8xKfbh42n_s7Y8m6aC_s",
+  authDomain: "chat-encrypt-a922a.firebaseapp.com",
+  databaseURL: "https://chat-encrypt-a922a-default-rtdb.asia-southeast1.firebasedatabase.app"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.database();
+
+let currentUser, currentChat, mode="normal";
+
+// AUTH
+auth.onAuthStateChanged(user=>{
+  if(!user) return location.href="login.html";
+  currentUser = user;
+  loadUsers();
+});
+
+// LOAD USERS
+function loadUsers(){
+  db.ref("users").on("child_added", snap=>{
+    const user = snap.val();
+    const uid = snap.key;
+    if(uid === currentUser.uid) return;
+
+    const div = document.createElement("div");
+    div.className="tab";
+    div.innerText=user.username;
+
+    div.onclick=()=>openChat(uid,user.username,"normal");
+
+    document.getElementById("userList").appendChild(div);
+  });
+}
+
+// CHAT ID
+function chatId(a,b,type){
+  return type+"_"+(a<b?a+"_"+b:b+"_"+a);
+}
+
+// OPEN CHAT
+function openChat(uid,name,type){
+  mode=type;
+  currentChat=chatId(currentUser.uid,uid,type);
+
+  document.getElementById("header").innerText = name + (type==="encrypt"?" 🔐":"");
+  document.getElementById("messages").innerHTML="";
+
+  db.ref("messages/"+currentChat).on("child_added", snap=>{
+    const m=snap.val();
+
+    const div=document.createElement("div");
+    div.className="msg "+(m.sender===currentUser.uid?"me":"other");
+    div.innerText=m.text;
+
+    document.getElementById("messages").appendChild(div);
+  });
+}
+
+// SEND
+function send(){
+  const text=document.getElementById("msg").value;
+  if(!text||!currentChat) return;
+
+  db.ref("messages/"+currentChat).push({
+    sender:currentUser.uid,
+    text,
+    time:Date.now(),
+    encrypt:(mode==="encrypt")
+  });
+
+  db.ref("logs").push({
+    text: currentUser.uid+" ("+mode+"): "+text
+  });
+
+  document.getElementById("msg").value="";
+}
+
+// TAB SYSTEM
+function showTab(tab){
+  if(tab==="profile"){
+    const bio=prompt("Bio baru:");
+    const name=prompt("Username baru:");
+    const photo=prompt("Foto URL:");
+
+    db.ref("users/"+currentUser.uid).update({
+      bio,name,photo
+    });
+
+    alert("Profile diupdate!");
+  }
+
+  if(tab==="search"){
+    const keyword=prompt("Cari username:");
+
+    db.ref("users").once("value", snap=>{
+      snap.forEach(s=>{
+        if(s.val().username.includes(keyword)){
+          alert("Ditemukan: "+s.val().username);
+        }
+      });
+    });
+  }
+
+  if(tab==="encrypt"){
+    alert("Klik user untuk mulai chat encrypt 🔐");
+    mode="encrypt";
+  }
+}
+</script>
+
+</body>
+</html>
