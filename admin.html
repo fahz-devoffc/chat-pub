@@ -1,1 +1,795 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LisaAdmin™ - Control Panel</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
+        body {
+            font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
+            background: #0a0a0f;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Terminal-style scanline effect */
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 255, 0, 0.03) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #0d0d15, #0a0a0f);
+            border-bottom: 1px solid rgba(255, 107, 157, 0.3);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+        }
+
+        .logo h2 {
+            background: linear-gradient(135deg, #ff6b9d, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-size: 20px;
+        }
+
+        .logo p {
+            color: #ff6b9d;
+            font-size: 10px;
+            letter-spacing: 1px;
+        }
+
+        .admin-badge {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .admin-badge span {
+            color: #0f0;
+            font-family: monospace;
+            font-size: 12px;
+            background: rgba(0, 255, 0, 0.1);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 255, 0, 0.3);
+        }
+
+        .logout-btn {
+            background: rgba(255, 68, 68, 0.2);
+            border: 1px solid rgba(255, 68, 68, 0.5);
+            padding: 8px 16px;
+            border-radius: 20px;
+            color: #ff6666;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 68, 68, 0.4);
+        }
+
+        /* Main layout */
+        .main-container {
+            display: flex;
+            height: 100vh;
+            padding-top: 72px;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: rgba(10, 10, 20, 0.95);
+            border-right: 1px solid rgba(255, 107, 157, 0.2);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: #aaa;
+            font-size: 15px;
+            font-weight: 500;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-btn i {
+            width: 24px;
+            font-size: 18px;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 107, 157, 0.1);
+            color: #ff6b9d;
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(135deg, rgba(255, 107, 157, 0.2), rgba(192, 132, 252, 0.2));
+            color: #ff6b9d;
+            border-left: 3px solid #ff6b9d;
+        }
+
+        /* Content area */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        /* Terminal Panel */
+        .terminal-panel {
+            background: #0a0a0f;
+            border: 1px solid #1a1a2e;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .terminal-header {
+            background: #0d0d15;
+            padding: 12px 20px;
+            border-bottom: 1px solid #1a1a2e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .terminal-header span {
+            color: #0f0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .terminal-header i {
+            color: #ff6b9d;
+        }
+
+        .terminal-body {
+            padding: 16px;
+            height: 280px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: #050508;
+        }
+
+        .terminal-line {
+            color: #0f0;
+            margin-bottom: 6px;
+            border-left: 2px solid #0f0;
+            padding-left: 10px;
+            opacity: 0.9;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .terminal-line.warning {
+            color: #ffaa44;
+            border-left-color: #ffaa44;
+        }
+
+        .terminal-line.error {
+            color: #ff4444;
+            border-left-color: #ff4444;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: rgba(20, 20, 35, 0.8);
+            border: 1px solid rgba(255, 107, 157, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-card i {
+            font-size: 28px;
+            color: #ff6b9d;
+            margin-bottom: 12px;
+        }
+
+        .stat-card .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .stat-card .stat-label {
+            color: #888;
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
+        /* User Table */
+        .users-table-container, .requests-table-container {
+            background: rgba(20, 20, 35, 0.8);
+            border-radius: 16px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            color: #ff6b9d;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        td {
+            color: #ddd;
+            font-size: 13px;
+        }
+
+        .action-btn {
+            background: transparent;
+            border: 1px solid;
+            padding: 6px 12px;
+            border-radius: 8px;
+            margin: 0 4px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        .btn-allow {
+            border-color: #44ff44;
+            color: #44ff44;
+        }
+
+        .btn-allow:hover {
+            background: rgba(68, 255, 68, 0.2);
+        }
+
+        .btn-reject {
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+
+        .btn-reject:hover {
+            background: rgba(255, 68, 68, 0.2);
+        }
+
+        .btn-block {
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+
+        .btn-unban {
+            border-color: #44ff44;
+            color: #44ff44;
+        }
+
+        .btn-delete {
+            border-color: #ff8844;
+            color: #ff8844;
+        }
+
+        .section-title {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .badge {
+            background: rgba(255, 107, 157, 0.2);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            color: #ff6b9d;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a1a2e;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ff6b9d;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+    
+    <div class="header">
+        <div class="logo">
+            <h2><i class="fas fa-skull"></i> LisaAdmin Panel</h2>
+            <p>BLACKHAT CONTROL SYSTEM v2.0</p>
+        </div>
+        <div class="admin-badge">
+            <span><i class="fas fa-terminal"></i> ROOT_ACCESS</span>
+            <div class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <button class="nav-btn active" data-page="dashboard">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </button>
+            <button class="nav-btn" data-page="terminal">
+                <i class="fas fa-terminal"></i> Terminal Monitor
+            </button>
+            <button class="nav-btn" data-page="inbox">
+                <i class="fas fa-inbox"></i> Inbox Requests
+                <span id="requestBadge" class="badge" style="margin-left: auto;">0</span>
+            </button>
+            <button class="nav-btn" data-page="users">
+                <i class="fas fa-users"></i> User Management
+            </button>
+        </div>
+
+        <div class="content-area">
+            <!-- Dashboard Page -->
+            <div id="dashboardPage">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <i class="fas fa-users"></i>
+                        <div class="stat-value" id="totalUsers">0</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-clock"></i>
+                        <div class="stat-value" id="pendingRequests">0</div>
+                        <div class="stat-label">Pending Requests</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-ban"></i>
+                        <div class="stat-value" id="bannedUsers">0</div>
+                        <div class="stat-label">Banned Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-comment-dots"></i>
+                        <div class="stat-value" id="totalChats">0</div>
+                        <div class="stat-label">Total Chats</div>
+                    </div>
+                </div>
+                <div class="terminal-panel">
+                    <div class="terminal-header">
+                        <span><i class="fas fa-microchip"></i> SYSTEM MONITOR</span>
+                        <i class="fas fa-circle" style="color: #0f0; font-size: 10px;"></i>
+                    </div>
+                    <div class="terminal-body" id="miniTerminal">
+                        <div class="terminal-line">> LisaAdmin Panel initialized...</div>
+                        <div class="terminal-line">> Monitoring aktif</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terminal Full Page -->
+            <div id="terminalPage" class="hidden">
+                <div class="section-title">
+                    <i class="fas fa-terminal"></i> Live Terminal Logs
+                </div>
+                <div class="terminal-panel">
+                    <div class="terminal-header">
+                        <span><i class="fas fa-eye"></i> REALTIME MONITOR</span>
+                        <span id="terminalTime"></span>
+                    </div>
+                    <div class="terminal-body" id="fullTerminal" style="height: 500px;">
+                        <div class="terminal-line">> Terminal log dimulai...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inbox Requests Page -->
+            <div id="inboxPage" class="hidden">
+                <div class="section-title">
+                    <i class="fas fa-inbox"></i> Registration Requests
+                </div>
+                <div class="users-table-container">
+                    <table id="requestsTable">
+                        <thead>
+                            <tr><th>Username</th><th>Email</th><th>Tanggal</th><th>Aksi</th></tr>
+                        </thead>
+                        <tbody id="requestsList"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Users Page -->
+            <div id="usersPage" class="hidden">
+                <div class="section-title">
+                    <i class="fas fa-users"></i> All Users
+                </div>
+                <div class="users-table-container">
+                    <table id="usersTable">
+                        <thead>
+                            <tr><th>Username</th><th>Email</th><th>UID</th><th>Status</th><th>Aksi</th></tr>
+                        </thead>
+                        <tbody id="usersList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBsjCVA17gsS4b8xKfbh42n_s7Y8m6aC_s",
+            authDomain: "chat-encrypt-a922a.firebaseapp.com",
+            databaseURL: "https://chat-encrypt-a922a-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "chat-encrypt-a922a",
+            storageBucket: "chat-encrypt-a922a.firebasestorage.app",
+            messagingSenderId: "311419431284",
+            appId: "1:311419431284:web:ad4edac6194bb2f4522421"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        let currentAdminId = null;
+
+        // Cek login admin (hardcoded admin check - bisa diatur manual di database)
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentAdminId = user.uid;
+            
+            // Cek apakah user ini admin (bisa ditambahkan manual di database nanti)
+            const adminCheck = await database.ref('admins/' + currentAdminId).once('value');
+            if (!adminCheck.exists()) {
+                // Fallback: user pertama yang login jadi admin otomatis
+                await database.ref('admins/' + currentAdminId).set({
+                    email: user.email,
+                    role: 'superadmin',
+                    timestamp: Date.now()
+                });
+                addTerminalLine('[SYS] First user registered as SUPERADMIN', 'warning');
+            }
+            
+            loadDashboard();
+            startRealtimeListeners();
+        });
+
+        function addTerminalLine(msg, type = 'info', target = 'both') {
+            const time = new Date().toLocaleTimeString();
+            const line = `[${time}] ${msg}`;
+            let className = 'terminal-line';
+            if (type === 'warning') className += ' warning';
+            if (type === 'error') className += ' error';
+            
+            const miniTerm = document.getElementById('miniTerminal');
+            const fullTerm = document.getElementById('fullTerminal');
+            
+            if (target === 'both' || target === 'mini') {
+                const miniLine = document.createElement('div');
+                miniLine.className = className;
+                miniLine.textContent = '> ' + line;
+                miniTerm.appendChild(miniLine);
+                miniTerm.scrollTop = miniTerm.scrollHeight;
+                // keep last 50 lines
+                while (miniTerm.children.length > 50) miniTerm.removeChild(miniTerm.firstChild);
+            }
+            
+            if (target === 'both' || target === 'full') {
+                const fullLine = document.createElement('div');
+                fullLine.className = className;
+                fullLine.textContent = '> ' + line;
+                fullTerm.appendChild(fullLine);
+                fullTerm.scrollTop = fullTerm.scrollHeight;
+                while (fullTerm.children.length > 200) fullTerm.removeChild(fullTerm.firstChild);
+            }
+        }
+
+        // Deteksi bahasa kasar
+        const badWords = ['bangsat', 'memek', 'kontol', 'anjing', 'goblok', 'tolol', 'idiot', 'babi', 'ngentot', 'jembut', 'peler', 'toket', 'nigger', 'fuck', 'shit', 'asshole'];
+        
+        function checkBadWords(text, userId, username) {
+            const lowerText = text.toLowerCase();
+            for (let word of badWords) {
+                if (lowerText.includes(word)) {
+                    addTerminalLine(`⚠️ BAD WORD DETECTED | User: ${username} (${userId}) | Word: "${word}" | Context: "${text.substring(0, 50)}"`, 'warning');
+                    // Simpan ke log khusus
+                    database.ref('logs/badwords').push({
+                        userId: userId,
+                        username: username,
+                        word: word,
+                        text: text,
+                        timestamp: Date.now()
+                    });
+                    break;
+                }
+            }
+        }
+
+        // Monitor chat untuk deteksi kasar
+        function monitorChats() {
+            database.ref('chats').on('child_added', (snapshot) => {
+                const chat = snapshot.val();
+                if (chat && chat.message && chat.userId) {
+                    database.ref('users/' + chat.userId + '/username').once('value').then((userSnap) => {
+                        const username = userSnap.val() || 'Unknown';
+                        checkBadWords(chat.message, chat.userId, username);
+                    });
+                }
+            });
+        }
+
+        // Monitor pending requests badge
+        function updateRequestBadge() {
+            database.ref('pendingRequests').on('value', (snapshot) => {
+                let pending = 0;
+                snapshot.forEach((child) => {
+                    if (child.val().status === 'pending') pending++;
+                });
+                document.getElementById('requestBadge').textContent = pending;
+                document.getElementById('pendingRequests').textContent = pending;
+                if (pending > 0) {
+                    addTerminalLine(`📬 ${pending} pending registration request(s)`, 'warning');
+                }
+            });
+        }
+
+        // Load dashboard stats
+        async function loadDashboard() {
+            // Total users
+            const usersSnap = await database.ref('users').once('value');
+            let total = 0, banned = 0;
+            usersSnap.forEach(() => total++);
+            
+            const bannedSnap = await database.ref('users').orderByChild('banned').equalTo(true).once('value');
+            bannedSnap.forEach(() => banned++);
+            
+            document.getElementById('totalUsers').textContent = total;
+            document.getElementById('bannedUsers').textContent = banned;
+            
+            // Total chats
+            const chatsSnap = await database.ref('chats').once('value');
+            document.getElementById('totalChats').textContent = chatsSnap.size || 0;
+            
+            updateRequestBadge();
+            loadRequestsTable();
+            loadUsersTable();
+            monitorChats();
+            
+            // Monitor website down detection (ping simulation)
+            setInterval(() => {
+                const status = navigator.onLine;
+                if (!status) {
+                    addTerminalLine('⚠️ WEBSITE CONNECTION ISSUE DETECTED -可能的 downtime', 'error');
+                } else {
+                    addTerminalLine('✓ Connection stable', 'info', 'full');
+                }
+            }, 30000);
+        }
+
+        // Load requests table
+        async function loadRequestsTable() {
+            const snapshot = await database.ref('pendingRequests').once('value');
+            const tbody = document.getElementById('requestsList');
+            tbody.innerHTML = '';
+            
+            for (const [uid, data] of Object.entries(snapshot.val() || {})) {
+                if (data.status === 'pending') {
+                    const row = tbody.insertRow();
+                    row.insertCell(0).textContent = data.username;
+                    row.insertCell(1).textContent = data.email;
+                    row.insertCell(2).textContent = new Date(data.timestamp).toLocaleString();
+                    const actions = row.insertCell(3);
+                    
+                    const allowBtn = document.createElement('button');
+                    allowBtn.textContent = 'Izinkan';
+                    allowBtn.className = 'action-btn btn-allow';
+                    allowBtn.onclick = () => approveUser(uid, data.username, data.email);
+                    
+                    const rejectBtn = document.createElement('button');
+                    rejectBtn.textContent = 'Tolak';
+                    rejectBtn.className = 'action-btn btn-reject';
+                    rejectBtn.onclick = () => rejectUser(uid);
+                    
+                    actions.appendChild(allowBtn);
+                    actions.appendChild(rejectBtn);
+                }
+            }
+        }
+
+        async function approveUser(uid, username, email) {
+            // Pindahkan ke users
+            await database.ref('users/' + uid).set({
+                uid: uid,
+                username: username,
+                email: email,
+                banned: false,
+                createdAt: Date.now(),
+                bio: 'Halo! Saya pengguna LisaChat',
+                photoURL: ''
+            });
+            await database.ref('usernames/' + username).set(uid);
+            await database.ref('pendingRequests/' + uid).remove();
+            
+            addTerminalLine(`✅ APPROVED: ${username} (${email})`, 'info');
+            loadRequestsTable();
+            loadUsersTable();
+            loadDashboard();
+        }
+
+        async function rejectUser(uid) {
+            await database.ref('pendingRequests/' + uid).remove();
+            // Hapus user dari auth juga (opsional)
+            addTerminalLine(`❌ REJECTED: User ${uid}`, 'error');
+            loadRequestsTable();
+            loadDashboard();
+        }
+
+        // Load users table
+        async function loadUsersTable() {
+            const snapshot = await database.ref('users').once('value');
+            const tbody = document.getElementById('usersList');
+            tbody.innerHTML = '';
+            
+            for (const [uid, data] of Object.entries(snapshot.val() || {})) {
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = data.username || 'No name';
+                row.insertCell(1).textContent = data.email || '-';
+                row.insertCell(2).textContent = uid.substring(0, 8) + '...';
+                row.insertCell(3).innerHTML = data.banned ? '<span style="color:#ff4444;">Banned</span>' : '<span style="color:#44ff44;">Active</span>';
+                
+                const actions = row.insertCell(4);
+                
+                if (!data.banned) {
+                    const blockBtn = document.createElement('button');
+                    blockBtn.textContent = 'Blokir';
+                    blockBtn.className = 'action-btn btn-block';
+                    blockBtn.onclick = () => banUser(uid, data.username);
+                    actions.appendChild(blockBtn);
+                } else {
+                    const unbanBtn = document.createElement('button');
+                    unbanBtn.textContent = 'Unban';
+                    unbanBtn.className = 'action-btn btn-unban';
+                    unbanBtn.onclick = () => unbanUser(uid, data.username);
+                    actions.appendChild(unbanBtn);
+                }
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Hapus';
+                deleteBtn.className = 'action-btn btn-delete';
+                deleteBtn.onclick = () => deleteUser(uid, data.username);
+                actions.appendChild(deleteBtn);
+            }
+        }
+
+        async function banUser(uid, username) {
+            await database.ref('users/' + uid + '/banned').set(true);
+            addTerminalLine(`🔨 BANNED: ${username} (${uid})`, 'warning');
+            loadUsersTable();
+            loadDashboard();
+        }
+
+        async function unbanUser(uid, username) {
+            await database.ref('users/' + uid + '/banned').set(false);
+            addTerminalLine(`🔓 UNBANNED: ${username} (${uid})`, 'info');
+            loadUsersTable();
+            loadDashboard();
+        }
+
+        async function deleteUser(uid, username) {
+            if (confirm(`Hapus user ${username} secara permanen?`)) {
+                // Hapus dari database
+                await database.ref('users/' + uid).remove();
+                await database.ref('usernames').orderByChild(uid).once('value', (snap) => {
+                    snap.forEach((s) => s.ref.remove());
+                });
+                addTerminalLine(`💀 DELETED: ${username} (${uid})`, 'error');
+                loadUsersTable();
+                loadDashboard();
+            }
+        }
+
+        function startRealtimeListeners() {
+            // Monitor server status (simulasi)
+            setInterval(() => {
+                database.ref('.info/connected').once('value').then((snap) => {
+                    if (snap.val()) {
+                        addTerminalLine('✓ Firebase connection OK', 'info', 'full');
+                    } else {
+                        addTerminalLine('⚠️ Firebase disconnected!', 'error', 'full');
+                    }
+                });
+            }, 60000);
+            
+            // Update time di terminal
+            setInterval(() => {
+                document.getElementById('terminalTime').textContent = new Date().toLocaleString();
+            }, 1000);
+        }
+
+        // Navigation
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const page = btn.dataset.page;
+                document.getElementById('dashboardPage').classList.add('hidden');
+                document.getElementById('terminalPage').classList.add('hidden');
+                document.getElementById('inboxPage').classList.add('hidden');
+                document.getElementById('usersPage').classList.add('hidden');
+                
+                if (page === 'dashboard') document.getElementById('dashboardPage').classList.remove('hidden');
+                if (page === 'terminal') document.getElementById('terminalPage').classList.remove('hidden');
+                if (page === 'inbox') document.getElementById('inboxPage').classList.remove('hidden');
+                if (page === 'users') document.getElementById('usersPage').classList.remove('hidden');
+            });
+        });
+
+        document.getElementById('logoutBtn').onclick = () => {
+            auth.signOut();
+            window.location.href = 'login.html';
+        };
+
+        addTerminalLine('LisaAdmin Panel siap digunakan', 'info');
+    </script>
+</body>
+</html>
