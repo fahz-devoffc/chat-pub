@@ -15,33 +15,48 @@ const firebaseConfig = {
   apiKey: "AIzaSyBsjCVA17gsS4b8xKfbh42n_s7Y8m6aC_s",
   databaseURL: "https://chat-encrypt-a922a-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-const list = document.getElementById("list");
-
 db.ref("requests").on("child_added", snap=>{
-  const data = snap.val();
-  const id = snap.key;
+  const d=snap.val();
+  const id=snap.key;
 
-  const div = document.createElement("div");
-  div.innerHTML = `
-    <p>${data.email} (${data.username})</p>
-    <button onclick="approve('${id}')">Izinkan</button>
+  const div=document.createElement("div");
+
+  div.innerHTML=`
+    <p>${d.email} (${d.username})</p>
+    <button onclick="approve('${id}','${d.email}','${d.username}')">Izinkan</button>
     <button onclick="reject('${id}')">Tolak</button>
     <hr>
   `;
+
   list.appendChild(div);
 });
 
-function approve(id){
-  db.ref("requests/"+id).update({status:"approved"});
-  alert("Diizinkan");
+// APPROVE
+function approve(id,email,username){
+
+  // buat user dummy entry (izin manual)
+  const uid="approved_"+Date.now();
+
+  db.ref("users/"+uid).set({
+    email,
+    username,
+    approved:true,
+    createdAt:Date.now()
+  });
+
+  db.ref("requests/"+id).remove();
+
+  alert("User diizinkan!");
 }
 
+// REJECT
 function reject(id){
   db.ref("requests/"+id).remove();
-  alert("Ditolak");
+  alert("Ditolak!");
 }
 </script>
 
