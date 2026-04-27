@@ -2,12 +2,42 @@
 <html>
 <head>
 <title>User Management</title>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<style>
+body{
+  font-family:sans-serif;
+  background:#020617;
+  color:white;
+  padding:20px;
+}
+
+.card{
+  background:#0f172a;
+  padding:15px;
+  border-radius:10px;
+  margin-top:10px;
+}
+
+button{
+  margin-right:5px;
+  padding:6px 10px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.ban{background:#ef4444;}
+.unban{background:#22c55e;}
+.del{background:#facc15;color:black;}
+</style>
 </head>
 
 <body>
-<h2>Daftar User</h2>
+
+<h2>👥 User Management</h2>
 <div id="users"></div>
 
 <script>
@@ -15,39 +45,80 @@ const firebaseConfig = {
   apiKey: "AIzaSyBsjCVA17gsS4b8xKfbh42n_s7Y8m6aC_s",
   databaseURL: "https://chat-encrypt-a922a-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 const usersDiv = document.getElementById("users");
 
+// LOAD USERS
 db.ref("users").on("child_added", snap=>{
+  renderUser(snap);
+});
+
+db.ref("users").on("child_changed", snap=>{
+  document.getElementById(snap.key)?.remove();
+  renderUser(snap);
+});
+
+function renderUser(snap){
   const user = snap.val();
   const uid = snap.key;
 
   const div = document.createElement("div");
+  div.className="card";
+  div.id = uid;
+
   div.innerHTML = `
-    <p>${user.username} (${user.email})</p>
-    <button onclick="ban('${uid}')">Blokir</button>
-    <button onclick="unban('${uid}')">Unban</button>
-    <button onclick="hapus('${uid}')">Hapus</button>
-    <hr>
+    <b>${user.username}</b><br>
+    ${user.email || "-"}<br>
+    Status: ${user.banned ? "🚫 BANNED" : "✅ ACTIVE"}<br><br>
+
+    <button class="ban" onclick="ban('${uid}')">Blokir</button>
+    <button class="unban" onclick="unban('${uid}')">Unban</button>
+    <button class="del" onclick="hapus('${uid}')">Hapus</button>
   `;
+
   usersDiv.appendChild(div);
-});
+}
 
+// BAN
 function ban(uid){
-  db.ref("users/"+uid).update({banned:true});
-  alert("User diblokir");
+  db.ref("users/"+uid).update({
+    banned:true
+  });
+
+  db.ref("logs").push({
+    text:"ADMIN: user "+uid+" diblokir"
+  });
+
+  alert("User diblokir!");
 }
 
+// UNBAN
 function unban(uid){
-  db.ref("users/"+uid).update({banned:false});
-  alert("User diunban");
+  db.ref("users/"+uid).update({
+    banned:false
+  });
+
+  db.ref("logs").push({
+    text:"ADMIN: user "+uid+" diunban"
+  });
+
+  alert("User diaktifkan!");
 }
 
+// DELETE
 function hapus(uid){
+  if(!confirm("Yakin hapus user?")) return;
+
   db.ref("users/"+uid).remove();
-  alert("User dihapus");
+
+  db.ref("logs").push({
+    text:"ADMIN: user "+uid+" dihapus"
+  });
+
+  alert("User dihapus!");
 }
 </script>
 
