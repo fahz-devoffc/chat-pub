@@ -1,1 +1,172 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Admin Panel</title>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<style>
+body {
+  margin:0;
+  font-family:sans-serif;
+  background:#020617;
+  color:white;
+}
+
+/* LOGIN SCREEN */
+#loginBox {
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+
+.login-card {
+  background:#0f172a;
+  padding:30px;
+  border-radius:12px;
+  width:300px;
+  text-align:center;
+}
+
+input {
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+  border:none;
+  border-radius:8px;
+}
+
+button {
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+  border:none;
+  background:#38bdf8;
+  cursor:pointer;
+  border-radius:8px;
+}
+
+/* PANEL */
+#panel {
+  display:none;
+}
+
+.sidebar {
+  width:200px;
+  height:100vh;
+  background:#0f172a;
+  position:fixed;
+  padding:20px;
+}
+
+.sidebar button {
+  width:100%;
+  margin-top:10px;
+}
+
+.content {
+  margin-left:220px;
+  padding:20px;
+}
+
+.terminal {
+  background:black;
+  padding:15px;
+  height:300px;
+  overflow:auto;
+  border-radius:10px;
+  color:#00ff88;
+  font-size:13px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN TOKEN -->
+<div id="loginBox">
+  <div class="login-card">
+    <h2>Admin Access</h2>
+    <input id="token" placeholder="Masukkan Token Admin">
+    <button onclick="login()">Masuk</button>
+  </div>
+</div>
+
+<!-- PANEL ADMIN -->
+<div id="panel">
+  <div class="sidebar">
+    <h3>ADMIN</h3>
+    <button onclick="location.href='inbox.html'">Inbox</button>
+    <button onclick="location.href='user.html'">User</button>
+  </div>
+
+  <div class="content">
+    <h2>Terminal Monitoring</h2>
+    <div class="terminal" id="terminal"></div>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBsjCVA17gsS4b8xKfbh42n_s7Y8m6aC_s",
+  databaseURL: "https://chat-encrypt-a922a-default-rtdb.asia-southeast1.firebasedatabase.app"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// 🔐 TOKEN ADMIN
+const ADMIN_TOKEN = "A12BjOOPAdmin";
+
+// cek session
+if(localStorage.getItem("admin_token") === ADMIN_TOKEN){
+  openPanel();
+}
+
+function login(){
+  const token = document.getElementById("token").value;
+
+  if(token === ADMIN_TOKEN){
+    localStorage.setItem("admin_token", token);
+    openPanel();
+  } else {
+    alert("Token salah!");
+  }
+}
+
+function openPanel(){
+  document.getElementById("loginBox").style.display = "none";
+  document.getElementById("panel").style.display = "block";
+}
+
+// TERMINAL
+function log(msg){
+  const t = document.getElementById("terminal");
+  t.innerHTML += msg + "<br>";
+  t.scrollTop = t.scrollHeight;
+}
+
+// log activity
+db.ref("logs").on("child_added", snap=>{
+  log("[LOG] " + snap.val().text);
+});
+
+// 🚨 deteksi kata kasar
+const badWords = ["anjing","babi","tolol","goblok"];
+
+db.ref("messages").on("child_added", snap=>{
+  const msg = snap.val().text.toLowerCase();
+
+  badWords.forEach(word=>{
+    if(msg.includes(word)){
+      log("[WARNING] Kata kasar: " + msg);
+    }
+  });
+});
+</script>
+
+</body>
+</html>
