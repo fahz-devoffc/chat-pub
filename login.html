@@ -1,1 +1,185 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Login - Chat Encrypt</title>
 
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<style>
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg,#0f172a,#020617);
+  color:white;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+
+.container {
+  background:#1e293b;
+  padding:30px;
+  border-radius:15px;
+  width:340px;
+  box-shadow:0 0 30px rgba(0,0,0,0.5);
+}
+
+h2 { text-align:center; }
+
+input {
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+  border:none;
+  border-radius:8px;
+  background:#0f172a;
+  color:white;
+}
+
+button {
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+  border:none;
+  border-radius:8px;
+  background:#38bdf8;
+  color:black;
+  font-weight:bold;
+  cursor:pointer;
+  transition:0.2s;
+}
+button:hover { transform:scale(1.03); }
+
+.toggle {
+  text-align:center;
+  margin-top:10px;
+  cursor:pointer;
+  color:#38bdf8;
+}
+
+/* Toast */
+#toast {
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  background:#020617;
+  padding:12px 20px;
+  border-radius:8px;
+  opacity:0;
+  transition:0.3s;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h2 id="title">Login</h2>
+
+  <input id="username" placeholder="Username (Signup only)" style="display:none;">
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+
+  <button onclick="submit()">Masuk</button>
+
+  <div class="toggle" onclick="toggleMode()">
+    Belum punya akun? Daftar
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBsjCVA17gsS4b8xKfbh42n_s7Y8m6aC_s",
+  authDomain: "chat-encrypt-a922a.firebaseapp.com",
+  databaseURL: "https://chat-encrypt-a922a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "chat-encrypt-a922a"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+let isLogin = true;
+
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.innerText = msg;
+  t.style.opacity = 1;
+  setTimeout(()=> t.style.opacity = 0, 3000);
+}
+
+function toggleMode(){
+  isLogin = !isLogin;
+
+  document.getElementById("title").innerText = isLogin ? "Login" : "Sign Up";
+  document.getElementById("username").style.display = isLogin ? "none" : "block";
+
+  document.querySelector(".toggle").innerText =
+    isLogin ? "Belum punya akun? Daftar" : "Sudah punya akun? Login";
+}
+
+async function submit(){
+  const email = document.getElementById("email").value;
+  const pass = document.getElementById("password").value;
+  const username = document.getElementById("username").value;
+
+  if(!email || !pass){
+    return toast("Isi semua data!");
+  }
+
+  if(isLogin){
+    // LOGIN
+    auth.signInWithEmailAndPassword(email, pass)
+    .then(()=>{
+      toast("Login berhasil!");
+      localStorage.setItem("login", true);
+      setTimeout(()=> location.href="index.html",1000);
+    })
+    .catch(e => toast(e.message));
+
+  } else {
+    // SIGNUP CHECK
+    const snap = await db.ref("users").orderByChild("email").equalTo(email).once("value");
+
+    if(snap.exists()){
+      // kirim request ke admin
+      const reqId = Date.now();
+      db.ref("requests/"+reqId).set({
+        email,
+        username,
+        status:"pending",
+        time:new Date().toLocaleString()
+      });
+
+      return toast("Lebih dari 1x, sistem auto req admin!");
+    }
+
+    // DAFTAR
+    auth.createUserWithEmailAndPassword(email, pass)
+    .then(async (cred)=>{
+      const uid = cred.user.uid;
+
+      await db.ref("users/"+uid).set({
+        username,
+        email,
+        bio:"",
+        photo:"",
+        banned:false,
+        createdAt:Date.now()
+      });
+
+      toast("Akun berhasil dibuat!");
+    })
+    .catch(e => toast(e.message));
+  }
+}
+</script>
+
+</body>
+</html>
