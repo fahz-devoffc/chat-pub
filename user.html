@@ -1,1 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>User Management</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+</head>
 
+<body>
+<h2>Daftar User</h2>
+<div id="users"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBsjCVA17gsS4b8xKfbh42n_s7Y8m6aC_s",
+  databaseURL: "https://chat-encrypt-a922a-default-rtdb.asia-southeast1.firebasedatabase.app"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const usersDiv = document.getElementById("users");
+
+db.ref("users").on("child_added", snap=>{
+  const user = snap.val();
+  const uid = snap.key;
+
+  const div = document.createElement("div");
+  div.innerHTML = `
+    <p>${user.username} (${user.email})</p>
+    <button onclick="ban('${uid}')">Blokir</button>
+    <button onclick="unban('${uid}')">Unban</button>
+    <button onclick="hapus('${uid}')">Hapus</button>
+    <hr>
+  `;
+  usersDiv.appendChild(div);
+});
+
+function ban(uid){
+  db.ref("users/"+uid).update({banned:true});
+  alert("User diblokir");
+}
+
+function unban(uid){
+  db.ref("users/"+uid).update({banned:false});
+  alert("User diunban");
+}
+
+function hapus(uid){
+  db.ref("users/"+uid).remove();
+  alert("User dihapus");
+}
+</script>
+
+</body>
+</html>
